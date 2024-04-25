@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -48,4 +49,27 @@ func (rc RabbitClient) Close() error {
 func (rc RabbitClient) CreateQueue(queueName string, durable, autodelete bool) error {
 	_, err := rc.ch.QueueDeclare(queueName, durable, autodelete, false, false, nil)
 	return err
+}
+
+// CreateBinding is used to connect a queue to an Exchange using the binding rule
+func (rc RabbitClient) CreateBinding(name, binding, exchange string) error {
+	// leaving nowait false, having nowait set to false will cause the channel to return an error and close if it cannot bind
+	// the final argument is the extra headers, but we won't be doing that now
+
+	return rc.ch.QueueBind(name, binding, exchange, false, nil)
+}
+
+// Send is used to publish a payload onto an exchange with a given routing key
+func (rc RabbitClient) Send(ctx context.Context, exchange, routingKey string, options amqp.Publishing) error {
+	return rc.ch.PublishWithContext(ctx,
+		exchange,   // exchange
+		routingKey, // routing key
+		// Mandatory is used when we HAVE to have the message return an error, if there is no route or queue then
+		// setting this to true will make the message bounce back
+		// If this is False, and the message fails to deliver, it will be dropped
+		true, // mandatory
+		// immediate Removed in MQ 3 or up https://blog.rabbitmq.com/posts/2012/11/breaking-things-with-rabbitmq-3-0§
+		false,   // immediate
+		options, // amqp publishing struct
+	)
 }
