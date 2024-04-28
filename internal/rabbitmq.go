@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 )
 
 // RabbitClient is used to keep track of RabbitMQ connection
@@ -51,9 +52,13 @@ func (rc RabbitClient) Close() error {
 }
 
 // CreateQueue will create a new queue based on given cfgs
-func (rc RabbitClient) CreateQueue(queueName string, durable, autodelete bool) error {
-	_, err := rc.ch.QueueDeclare(queueName, durable, autodelete, false, false, nil)
-	return err
+func (rc RabbitClient) CreateQueue(queueName string, durable, autodelete bool) (amqp.Queue, error) {
+	q, err := rc.ch.QueueDeclare(queueName, durable, autodelete, false, false, nil)
+	if err != nil {
+		return amqp.Queue{}, nil
+	}
+
+	return q, nil
 }
 
 // CreateBinding is used to connect a queue to an Exchange using the binding rule
@@ -66,7 +71,8 @@ func (rc RabbitClient) CreateBinding(name, binding, exchange string) error {
 
 // Send is used to publish a payload onto an exchange with a given routing key
 func (rc RabbitClient) Send(ctx context.Context, exchange, routingKey string, options amqp.Publishing) error {
-	return rc.ch.PublishWithContext(ctx,
+	// PublishWithDeferredConfirmWithContext will wait for server to ACK the message
+	confirmation, err := rc.ch.PublishWithDeferredConfirmWithContext(ctx,
 		exchange,   // exchange
 		routingKey, // routing key
 		// Mandatory is used when we HAVE to have the message return an error, if there is no route or queue then
@@ -77,6 +83,25 @@ func (rc RabbitClient) Send(ctx context.Context, exchange, routingKey string, op
 		false,   // immediate
 		options, // amqp publishing struct
 	)
+	if err != nil {
+		return err
+	}
+	// Blocks until ACK from Server is receieved
+	log.Println(confirmation.Wait())
+	return nil
+
+	//PublishWithContext without blocking:
+	//return rc.ch.PublishWithContext(ctx,
+	//	exchange,   // exchange
+	//	routingKey, // routing key
+	//	// Mandatory is used when we HAVE to have the message return an error, if there is no route or queue then
+	//	// setting this to true will make the message bounce back
+	//	// If this is False, and the message fails to deliver, it will be dropped
+	//	true, // mandatory
+	//	// immediate Removed in MQ 3 or up https://blog.rabbitmq.com/posts/2012/11/breaking-things-with-rabbitmq-3-0§
+	//	false,   // immediate
+	//	options, // amqp publishing struct
+	//)
 }
 
 // Consume is a wrapper around consume, it will return a Channel that can be used to digest messages
