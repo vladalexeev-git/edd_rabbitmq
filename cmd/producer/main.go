@@ -11,14 +11,14 @@ import (
 
 func main() {
 	// conn for Pushing or Publishing
-	conn, err := internal.ConnectRabbitMQ("vlpc", "secret", "localhost:5672", "customers")
+	conn, err := internal.ConnectRabbitMQ("vlad", "secret", "localhost:5672", "customers")
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
 	// Never use the same Connection for Consume and Publish, so create conn for consuming
-	consumeConn, err := internal.ConnectRabbitMQ("vlpc", "secret", "localhost:5672", "customers")
+	consumeConn, err := internal.ConnectRabbitMQ("vlad", "secret", "localhost:5672", "customers")
 	if err != nil {
 		panic(err)
 	}

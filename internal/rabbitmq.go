@@ -113,3 +113,16 @@ func (rc RabbitClient) Send(ctx context.Context, exchange, routingKey string, op
 func (rc RabbitClient) Consume(queue, consumer string, autoAck bool) (<-chan amqp.Delivery, error) {
 	return rc.ch.Consume(queue, consumer, autoAck, false, false, false, nil)
 }
+
+// ApplyQos is used to apply quality of service to the channel
+// Prefetch count - How many messages the server will try to keep on the Channel
+// prefetch Size - How many Bytes the server will try to keep on the channel
+// global -- Any other Consumers on the connection in the future will apply the same rules if TRUE
+func (rc RabbitClient) ApplyQos(count, size int, global bool) error {
+	// Apply Quality of Serivce
+	return rc.ch.Qos(
+		count,
+		size,
+		global,
+	)
+}

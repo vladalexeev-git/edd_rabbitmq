@@ -11,13 +11,13 @@ import (
 
 func main() {
 
-	conn, err := internal.ConnectRabbitMQ("vlpc", "secret", "localhost:5672", "customers")
+	conn, err := internal.ConnectRabbitMQ("vlad", "secret", "localhost:5672", "customers")
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
-	publishConn, err := internal.ConnectRabbitMQ("vlpc", "secret", "localhost:5672", "customers")
+	publishConn, err := internal.ConnectRabbitMQ("vlad", "secret", "localhost:5672", "customers")
 	if err != nil {
 		panic(err)
 	}
@@ -57,18 +57,24 @@ func main() {
 	g, ctx := errgroup.WithContext(ctx)
 	// Set amount of concurrent tasks
 	g.SetLimit(10)
+
+	// Apply Qos to limit amount of messages to consume
+	if err := mqClient.ApplyQos(10, 0, true); err != nil {
+		panic(err)
+	}
+
 	go func() {
 		for message := range messageBus {
 			// Spawn a worker
 			msg := message
 			g.Go(func() error {
-				// Multiple means that we acknowledge a batch of messages, leave false for now
+				//Multiple means that we acknowledge a batch of messages, leave false for now
 				if err := msg.Ack(false); err != nil {
 					log.Printf("Acknowledged message failed: Retry ? Handle manually %s\n", msg.MessageId)
 					return err
 				}
 
-				log.Printf("Acknowledged message, replying to %s\n", msg.ReplyTo)
+				log.Printf("Acknowledged message, messageId: %s, replying to %s\n", msg.MessageId, msg.ReplyTo)
 
 				// Use the msg.ReplyTo to send the message to the proper Queue
 				if err := publishClient.Send(ctx, "customer_callbacks", msg.ReplyTo, amqp091.Publishing{
